@@ -32,7 +32,6 @@ max_token = 2048
 answer = ''
 mem = (0, [0], 32)
 
-api_key = "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"
 client = openai.OpenAI(api_key=api_key)
 
 

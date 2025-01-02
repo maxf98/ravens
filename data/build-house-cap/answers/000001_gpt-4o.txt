@@ -1,19 +1,34 @@
 Traceback (most recent call last):
+  File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 89, in __call__
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/maxfest/anaconda3/envs/bullet/lib/python3.12/site-packages/openai/_utils/_utils.py", line 275, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/maxfest/anaconda3/envs/bullet/lib/python3.12/site-packages/openai/resources/chat/completions.py", line 829, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/Users/maxfest/anaconda3/envs/bullet/lib/python3.12/site-packages/openai/_base_client.py", line 1280, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/maxfest/anaconda3/envs/bullet/lib/python3.12/site-packages/openai/_base_client.py", line 957, in request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "/Users/maxfest/anaconda3/envs/bullet/lib/python3.12/site-packages/openai/_base_client.py", line 1061, in _request
+    raise self._make_status_error_from_response(err.response) from None
+openai.AuthenticationError: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************nMMA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
   File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 1133, in main
     lmp_tabletop_ui(goal, f'objects = {env.object_list}')
   File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 132, in __call__
     exec_safe(to_exec, gvars, lvars)
   File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 478, in exec_safe
     exec(code_str, custom_gvars, lvars)
-  File "<string>", line 9, in <module>
-  File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 750, in is_target_occupied
-    x, y, _ = self.get_bbox(targ)
-              ^^^^^^^^^^^^^^^^^^^
-  File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 664, in get_bbox
-    bbox = self.env.get_bounding_box(obj_name)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/maxfest/vscode/thesis/ravens/environments/environment.py", line 744, in get_bounding_box
-    aabb_min, aabb_max = p.getAABB(obj_id)
-                         ^^^^^^^^^^^^^^^^^
-TypeError: 'NoneType' object cannot be interpreted as an integer
+  File "<string>", line 5, in <module>
+  File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 106, in __call__
+    sleep(10)
+KeyboardInterrupt
 
