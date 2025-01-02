@@ -12,10 +12,10 @@ import cv2
 import numpy as np
 import pybullet as p
 
-from tasks import cameras
-from tasks import primitives
-from tasks.grippers import Spatula
-from tasks.grippers import Suction
+from environments import cameras
+from environments import primitives
+from environments.grippers import Spatula
+from environments.grippers import Suction
 from utils import utils
 
 

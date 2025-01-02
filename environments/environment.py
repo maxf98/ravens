@@ -1,21 +1,21 @@
 """Environment class."""
 
 import os
+import random
+import re
+import string
 import tempfile
 import time
-import cv2
-import imageio
 
+import cv2
 import gymnasium as gym
+import imageio
 import numpy as np
-from tasks import cameras
+import pybullet as p
+
+from environments import cameras
 from utils import pybullet_utils
 from utils import utils
-import string
-import pybullet as p
-import tempfile
-import random
-import sys
 
 PLACE_STEP = 0.0003
 PLACE_DELTA_THRESHOLD = 0.005
@@ -51,13 +51,14 @@ class Environment(gym.Env):
         self.pix_size = 0.003125
         self.obj_ids = {'fixed': [], 'rigid': [], 'deformable': []}
         self.objects = self.obj_ids  # make a copy
-        self.object_list = self.obj_ids["fixed"] + self.obj_ids["rigid"]
 
         self.homej = np.array([-1, -0.5, 0.5, -0.5, -0.5, 0]) * np.pi
         self.agent_cams = cameras.RealSenseD415.CONFIG
         self.record_cfg = record_cfg
         self.save_video = False
+        self.video_path = None
         self.step_counter = 0
+        self.object_list = {}
 
         self.assets_root = assets_root
 
@@ -235,6 +236,7 @@ class Environment(gym.Env):
 
     def seed(self, seed=None):
         self._random = np.random.RandomState(seed)
+        self._seed = seed if seed else -100
         return seed
 
     def reset(self):
@@ -261,21 +263,21 @@ class Environment(gym.Env):
         self.ee = self.task.ee(self.assets_root, self.ur5, 9, self.obj_ids)
         self.ee_tip = 10  # Link ID of suction cup.
 
-        # if hasattr(self, 'record_cfg') and 'blender_render' in self.record_cfg and self.record_cfg[
-        #     'blender_render']:
-        #     from misc.pyBulletSimRecorder import PyBulletRecorder
-        #     self.blender_recorder = PyBulletRecorder()
+        if hasattr(self, 'record_cfg') and 'blender_render' in self.record_cfg and self.record_cfg[
+            'blender_render']:
+            from misc.pyBulletSimRecorder import PyBulletRecorder
+            self.blender_recorder = PyBulletRecorder()
 
-        #     self.blender_recorder.register_object(plane,
-        #                                           os.path.join(self.assets_root, PLANE_URDF_PATH))
-        #     self.blender_recorder.register_object(workspace, os.path.join(self.assets_root,
-        #                                                                   UR5_WORKSPACE_URDF_PATH))
-        #     self.blender_recorder.register_object(self.ur5,
-        #                                           os.path.join(self.assets_root, UR5_URDF_PATH))
+            self.blender_recorder.register_object(plane,
+                                                  os.path.join(self.assets_root, PLANE_URDF_PATH))
+            self.blender_recorder.register_object(workspace, os.path.join(self.assets_root,
+                                                                          UR5_WORKSPACE_URDF_PATH))
+            self.blender_recorder.register_object(self.ur5,
+                                                  os.path.join(self.assets_root, UR5_URDF_PATH))
 
-        #     self.blender_recorder.register_object(self.ee.base, self.ee.base_urdf_path)
-        #     if hasattr(self.ee, 'body'):
-        #         self.blender_recorder.register_object(self.ee.body, self.ee.urdf_path)
+            self.blender_recorder.register_object(self.ee.base, self.ee.base_urdf_path)
+            if hasattr(self.ee, 'body'):
+                self.blender_recorder.register_object(self.ee.body, self.ee.urdf_path)
 
         # Get revolute joint indices of robot (skip fixed joints).
         n_joints = p.getNumJoints(self.ur5)
@@ -295,6 +297,18 @@ class Environment(gym.Env):
         # Re-enable rendering.
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
 
+        phrases = []
+        if hasattr(self.task, 'obj'):
+            for key, value in self.task.obj.items():
+                phrase = (key,
+                          f"{value.get('catagory', 'movable')} {value.get('scale', '')} {value.get('color', '')} {value.get('shape', 'object')}")
+                phrases.append(phrase)
+            unique_phrases = []
+            for phrase in phrases:
+                unique_phrase = f"{phrase[1]} with obj_id {phrase[0]}"
+                unique_phrase = ' '.join(unique_phrase.split())
+                unique_phrases.append(unique_phrase)
+            self.object_list = unique_phrases
         obs, _, _, _ = self.step()
         return obs
 
@@ -446,50 +460,75 @@ class Environment(gym.Env):
     # Robot Movement Functions
     # ---------------------------------------------------------------------------
 
-    def movej(self, targj, speed=0.01, timeout=5):
+    def movej(self, targj, speed=0.01, timeout=5, effector=None):
         """Move UR5 to target joint configuration."""
         if self.save_video:
             timeout = timeout * 30  # 50?
 
-        t0 = time.time()
-        while (time.time() - t0) < timeout:
-            currj = [p.getJointState(self.ur5, i)[0] for i in self.joints]
-            currj = np.array(currj)
-            diffj = targj - currj
-            if all(np.abs(diffj) < 1e-2):
-                return False
+        if not effector:
+            body = self.ur5
+            n_joints = p.getNumJoints(body)
+            joints = [p.getJointInfo(body, i) for i in range(n_joints)]
+            joints = [j[0] for j in joints if j[2] == p.JOINT_REVOLUTE]
+            t0 = time.time()
+            while (time.time() - t0) < timeout:
+                currj = [p.getJointState(body, i)[0] for i in joints]
+                currj = np.array(currj)
+                diffj = targj - currj
+                if all(np.abs(diffj) < 1e-2):
+                    return False
 
-            # Move with constant velocity
-            norm = np.linalg.norm(diffj)
-            v = diffj / norm if norm > 0 else 0
-            stepj = currj + v * speed
-            gains = np.ones(len(self.joints))
-            p.setJointMotorControlArray(
-                bodyIndex=self.ur5,
-                jointIndices=self.joints,
-                controlMode=p.POSITION_CONTROL,
-                targetPositions=stepj,
-                positionGains=gains)
-            self.step_counter += 1
-            self.step_simulation()
+                # Move with constant velocity
+                norm = np.linalg.norm(diffj)
+                v = diffj / norm if norm > 0 else 0
+                stepj = currj + v * speed
+                gains = np.ones(len(joints))
+                p.setJointMotorControlArray(
+                    bodyIndex=body,
+                    jointIndices=joints,
+                    controlMode=p.POSITION_CONTROL,
+                    targetPositions=stepj,
+                    positionGains=gains)
+                self.step_counter += 1
+                self.step_simulation()
 
-        print(f'Warning: movej exceeded {timeout} second timeout. Skipping.')
-        return True
+            print(f'Warning: movej exceeded {timeout} second timeout. Skipping.')
+            return True
+
+        else:
+            body = effector.body
+            t0 = time.time()
+            while (time.time() - t0) < timeout/4:
+                # Move with constant velocity
+                p.setJointMotorControl2(body, 1, p.VELOCITY_CONTROL, targetVelocity=targj*speed, force=10)
+                # self.step_counter += 1
+                self.step_simulation()
+                if effector.gripper_force()[1] > 1 or np.isclose(effector.gripper_state()[1], 0, atol=0.01):
+                    return False
+
+            print(f'Warning: movej exceeded {timeout/4} second timeout. Skipping.')
+            return True
+
+        
 
     def start_rec(self, video_filename):
         assert self.record_cfg
 
+        if not self.video_path:
+            video_path = self.record_cfg['save_video_path']
+        else:
+            video_path = self.video_path
+
         # make video directory
-        if not os.path.exists(self.record_cfg['save_video_path']):
-            os.makedirs(self.record_cfg['save_video_path'])
+        if not os.path.exists(video_path):
+            os.makedirs(video_path)
 
         # close and save existing writer
         if hasattr(self, 'video_writer'):
             self.video_writer.close()
 
         # initialize writer
-        self.video_writer = imageio.get_writer(os.path.join(self.record_cfg['save_video_path'],
-                                                            f"{video_filename}.mp4"),
+        self.video_writer = imageio.get_writer(os.path.join(video_path, f"{video_filename}.mp4"),
                                                fps=self.record_cfg['fps'],
                                                format='FFMPEG',
                                                codec='h264', )
@@ -524,25 +563,19 @@ class Environment(gym.Env):
             font_thickness = 1
 
             # Write language goal.
-            line_length = 59
-            for i in range(len(lang_goal) // line_length + 1):
-                lang_textsize = cv2.getTextSize(
-                    lang_goal[i * line_length:(i + 1) * line_length],
-                    font,
-                    font_scale,
-                    font_thickness
-                )[0]
+            line_length = 60
+            line_count = len(lang_goal) // line_length + 1
+            for i in range(line_count):
+                lang_textsize = \
+                cv2.getTextSize(lang_goal[i * line_length:(i + 1) * line_length], font, font_scale,
+                                font_thickness)[0]
                 lang_textX = (image_size[1] - lang_textsize[0]) // 2
-                color = cv2.putText(
-                    color,
-                    lang_goal[i * line_length:(i + 1) * line_length],
-                    org=(lang_textX, 570 + i * 30),  # 600
-                    fontScale=font_scale,
-                    fontFace=font,
-                    color=(0, 0, 0),
-                    thickness=font_thickness,
-                    lineType=cv2.LINE_AA
-                )
+                color = cv2.putText(color, lang_goal[i * line_length:(i + 1) * line_length],
+                                    org=(lang_textX, 570 + i * 30),  # 600
+                                    fontScale=font_scale,
+                                    fontFace=font,
+                                    color=(0, 0, 0),
+                                    thickness=font_thickness, lineType=cv2.LINE_AA)
 
             ## Write Reward.
             # reward_textsize = cv2.getTextSize(reward, font, font_scale, font_thickness)[0]
@@ -565,10 +598,12 @@ class Environment(gym.Env):
             font_thickness = 2
 
             # Write language goal.
+            line_length = 60
+            line_count = len(lang_goal) // line_length + 1
             lang_textsize = cv2.getTextSize(lang_goal, font, font_scale, font_thickness)[0]
             lang_textX = (image_size[1] - lang_textsize[0]) // 2
 
-            color = cv2.putText(color, lang_goal, org=(lang_textX, 600),
+            color = cv2.putText(color, lang_goal, org=(lang_textX, 570+line_count*30),
                                 fontScale=font_scale,
                                 fontFace=font,
                                 color=(255, 0, 0),
@@ -621,6 +656,110 @@ class Environment(gym.Env):
         size_y = aabb_max[1] - aabb_min[1]
         size_z = aabb_max[2] - aabb_min[2]
         return size_z * size_y * size_x
+
+    """ ----------------------------------- CapRavens utils ------------------------------- """
+
+    def on_top_of(self, obj_a, obj_b):
+        """
+        check if obj_a is on top of obj_b
+        condition 1: l2 distance on xy plane is less than a threshold
+        condition 2: obj_a is higher than obj_b
+        """
+        obj_a_pos = self.get_obj_pos(obj_a)
+        obj_b_pos = self.get_obj_pos(obj_b)
+        xy_dist = np.linalg.norm(obj_a_pos[:2] - obj_b_pos[:2])
+        if obj_b in utils.CORNER_POS:
+            is_near = xy_dist < 0.06
+            return is_near
+        elif 'bowl' in obj_b or 'container' in obj_b or 'fixture' in obj_b:
+            is_near = xy_dist < 0.06
+            is_higher = obj_a_pos[2] > obj_b_pos[2]
+            return is_near and is_higher
+        else:
+            is_near = xy_dist < 0.04
+            is_higher = obj_a_pos[2] > obj_b_pos[2]
+            return is_near and is_higher
+
+    def get_obj_id(self, obj_name, count=1):
+
+        if type(obj_name) in (str, np.str_):
+            if 'with obj_id' in obj_name:
+                id_pattern = r'obj_id\s+(\d+)'
+                id_match = re.search(id_pattern, obj_name)
+                obj_id = id_match.group(1)
+                return int(obj_id)
+        if type(obj_name) == list:
+            if all('with obj_id' in obj for obj in obj_name):
+                return [int(re.findall(r'-?\d+', obj)[0]) for obj in obj_name]
+
+        obj_id = utils.find_best_keys(self.task.obj, obj_name)
+        if len(obj_id) == 0:
+            print(f'requested_name: "{obj_name}"')
+            print(f'available_id_and_object:\n{self.object_list}')
+            return None
+        if count == 1:
+            return obj_id[0]
+        return obj_id[:count] if count != -1 else obj_id
+
+    def get_obj_pos(self, obj_name, count=1):
+        if type(obj_name) == int:
+            position = p.getBasePositionAndOrientation(obj_name)[0]
+            return [position]
+        if isinstance(obj_name,list) and all(element in utils.CORNER_POS for element in obj_name):
+            position = np.float32(np.array(utils.CORNER_POS[obj_name]))
+            return [position]
+        else:
+            pick_id = self.get_obj_id(obj_name, count)
+            if 'zone' in obj_name:
+                if type(pick_id) == int:
+                    pick_id = [pick_id]
+                bias = np.array([0.01, 0, -0.01])
+                position = [np.array(p.getBasePositionAndOrientation(id)[0]) + 
+                            np.array(utils.rotation_to_rotation_matrix(p.getBasePositionAndOrientation(id)[1])) @ bias
+                            for id in pick_id]
+                position = [tuple(pos) for pos in position]
+            else:
+                if type(pick_id) == int:
+                    pick_id = [pick_id]
+                position = [p.getBasePositionAndOrientation(id)[0] for id in pick_id]
+        return position
+
+    def get_obj_rot(self, obj_name, count=1):
+        if type(obj_name) == int:
+            rotation = p.getBasePositionAndOrientation(obj_name)[1]
+            rotation = self.ignore_roll_pitch(rotation)
+            return [rotation]
+        else:
+            pick_id = self.get_obj_id(obj_name, count)
+            if type(pick_id) == int:
+                pick_id = [pick_id]
+            rotation = [self.ignore_roll_pitch(p.getBasePositionAndOrientation(id)[1]) for id in
+                        pick_id]
+        return rotation
+
+    def get_bounding_box(self, obj_name):
+        obj_id = self.get_obj_id(obj_name)
+        if isinstance(obj_id, list):
+            obj_id = obj_id[0]
+        aabb_min, aabb_max = p.getAABB(obj_id)
+
+        size_x_min = aabb_min[0]
+        size_x_max = aabb_max[0]
+        size_y_min = aabb_min[1]
+        size_y_max = aabb_max[1]
+        size_z_min = aabb_min[2]
+        size_z_max = aabb_max[2]
+        return (size_x_min, size_y_min, size_z_min, size_x_max, size_y_max, size_z_max)
+
+    def get_ee_pos(self):
+        ee_xyz = np.float32(p.getLinkState(self.ur5, self.ee_tip)[0])
+        return ee_xyz
+
+    def ignore_roll_pitch(self, rotation):
+        rotation = utils.quatXYZW_to_eulerXYZ(rotation)
+        rotation = [0, 0, rotation[2]]
+        rotation = utils.eulerXYZ_to_quatXYZW(rotation)
+        return rotation
 
 
 class EnvironmentNoRotationsWithHeightmap(Environment):

@@ -4,7 +4,7 @@ from typing import List, Set, Union
 import numpy as np
 import pybullet as p
 
-from tasks.task import Task
+from environments.task import Task
 from utils import utils
 
 

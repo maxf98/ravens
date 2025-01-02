@@ -1,0 +1,19 @@
+Traceback (most recent call last):
+  File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 1133, in main
+    lmp_tabletop_ui(goal, f'objects = {env.object_list}')
+  File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 132, in __call__
+    exec_safe(to_exec, gvars, lvars)
+  File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 478, in exec_safe
+    exec(code_str, custom_gvars, lvars)
+  File "<string>", line 9, in <module>
+  File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 750, in is_target_occupied
+    x, y, _ = self.get_bbox(targ)
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/maxfest/vscode/thesis/ravens/cap.py", line 664, in get_bbox
+    bbox = self.env.get_bounding_box(obj_name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/maxfest/vscode/thesis/ravens/environments/environment.py", line 744, in get_bounding_box
+    aabb_min, aabb_max = p.getAABB(obj_id)
+                         ^^^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object cannot be interpreted as an integer
+

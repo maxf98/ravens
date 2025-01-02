@@ -2,8 +2,8 @@
 
 from absl.testing import absltest
 
-from cliport import tasks
-from cliport.environments import environment
+import tasks
+from environments import environment
 
 ASSETS_PATH = 'dvnets/environments/assets/'
 

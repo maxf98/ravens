@@ -1,8 +1,8 @@
 import numpy as np
 
-from tasks import primitives
-from tasks.grippers import Spatula
-from tasks.task import Task
+from environments import primitives
+from environments.grippers import Spatula
+from environments.task import Task
 
 
 class SweepingPiles(Task):

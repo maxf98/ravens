@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from tasks.task import Task
+from environments.task import Task
 from utils import utils
 
 

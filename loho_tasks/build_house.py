@@ -2,10 +2,10 @@ import numpy as np
 import os
 import pybullet as p
 import random
-from cliport.tasks import primitives
-from cliport.tasks.grippers import Spatula
-from cliport.tasks.task import Task
-from cliport.utils import utils
+from environments import primitives
+from environments.grippers import Spatula
+from environments.task import Task
+from utils import utils
 
 
 class BuildHouse(Task):

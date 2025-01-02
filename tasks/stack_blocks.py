@@ -6,9 +6,9 @@ import numpy as np
 import pybullet as p
 
 from tasks.color_reasoning import COLOR_CATEGORY_NAMES
-from tasks.task import Task
+from environments.task import Task
 from utils import utils
-from tasks.grippers import Grip
+from environments.grippers import Grip
 
 
 class StackBlockPyramidSeqUnseenColors(Task):

@@ -28,11 +28,12 @@ from tasks.stack_blocks import StackBlocksByColorAndSize
 from tasks.stack_blocks import StackBlocksWithAlternateColor
 from tasks.stack_blocks import StackBlocksByRelativePositionAndColor
 from tasks.sweeping_piles import SweepingPiles
-from tasks.task import Task
+from environments.task import Task
 from tasks.towers_of_hanoi import TowersOfHanoi
 from tasks.towers_of_hanoi_seq import TowersOfHanoiSeq
 
 from loho_tasks.build_cube import BuildCubeWithSameColorBlock
+from loho_tasks.build_house import BuildHouse
 
 
 names = {
@@ -97,7 +98,8 @@ names = {
     'put-block-into-mismatching-bowl': PutBlockInMismatchingBowl,
     'put-block-into-matching-bowl': PutBlockInMatchingBowl,
 
-    'build-cube' : BuildCubeWithSameColorBlock
+    'build-cube' : BuildCubeWithSameColorBlock,
+    'build-house': BuildHouse
 }
 
 

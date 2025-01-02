@@ -3,9 +3,9 @@ import random
 import numpy as np
 import pybullet as p
 
-from tasks import primitives
-from tasks.grippers import Spatula
-from tasks.task import Task
+from environments import primitives
+from environments.grippers import Spatula
+from environments.task import Task
 from utils import utils
 
 

@@ -1,7 +1,7 @@
 """Motion primitives."""
 
 import numpy as np
-import tasks.grippers as grippers
+import environments.grippers as grippers
 from utils import utils
 import time
 

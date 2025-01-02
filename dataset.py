@@ -8,7 +8,7 @@ import numpy as np
 from torch.utils.data import Dataset
 
 import tasks
-from tasks import cameras
+from environments import cameras
 from utils import utils
 import traceback
 
